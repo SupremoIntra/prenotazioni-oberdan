@@ -1,0 +1,18 @@
+body { font-family: Arial, sans-serif; margin: 0; padding: 0; text-align: center; background: #f0f8ff; }
+#grid { display: grid; gap: 5px; justify-content: center; margin-top: 20px; }
+.seat {
+  width: 50px; height: 50px;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  color: #fff;
+  cursor: pointer;
+  user-select: none;
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+.seat:hover { transform: scale(1.1); box-shadow: 0 0 8px rgba(0,0,0,0.3); }
+.available { background: #1E90FF; }
+.reserved { background: #FF6347; cursor: not-allowed; }
+.blocked { background: #A9A9A9; cursor: not-allowed; }
