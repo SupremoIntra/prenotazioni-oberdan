@@ -6,60 +6,17 @@
 <style>
   body { font-family: Arial, sans-serif; margin: 20px; background-color: #f0f8ff; text-align: center; }
   h1 { color: #1E90FF; margin-bottom: 15px; }
-  
   #controls { margin-bottom: 15px; }
-  button {
-    padding: 6px 12px;
-    margin: 5px;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-weight: bold;
-    color: #fff;
-    transition: transform 0.1s;
-  }
-  button:hover { transform: scale(1.05); }
+  button { padding: 6px 12px; margin: 5px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; color: #fff; }
   #resetBtn { background-color: #FF6347; }
-  #resetBtn:hover { background-color: #e5533b; }
   #exportBtn { background-color: #32CD32; }
-  #exportBtn:hover { background-color: #28a745; }
-
-  #adminGrid {
-    display: grid;
-    justify-content: center;
-    grid-gap: 5px;
-    margin-top: 10px;
-  }
-
-  .seat {
-    width: 50px; height: 50px;
-    display: flex; align-items: center; justify-content: center;
-    border-radius: 5px; font-weight: bold; cursor: pointer;
-    color: #fff; user-select: none; position: relative;
-    transition: transform 0.1s;
-  }
-  .seat:hover { transform: scale(1.1); }
-  
-  .available { background-color: #1E90FF; }  /* azzurro */
-  .reserved { background-color: #FF6347; }   /* rosso */
-  .blocked { background-color: #A9A9A9; }    /* grigio */
-
-  .seat::after {
-    content: attr(data-info);
-    position: absolute;
-    bottom: 110%;
-    left: 50%;
-    transform: translateX(-50%);
-    background: #333;
-    color: #fff;
-    padding: 2px 5px;
-    border-radius: 3px;
-    font-size: 12px;
-    white-space: nowrap;
-    opacity: 0; 
-    transition: opacity 0.2s;
-    pointer-events: none;
-  }
+  .styled-select-admin { padding: 8px 12px; border-radius: 5px; border: 1px solid #ccc; background: #fff; font-size: 16px; min-width: 220px; margin-right: 10px; }
+  #adminGrid { display: grid; justify-content: center; grid-gap: 5px; margin-top: 10px; }
+  .seat { width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; border-radius: 5px; font-weight: bold; color: #fff; user-select: none; position: relative; }
+  .available { background-color: #1E90FF; }
+  .reserved { background-color: #FF6347; }
+  .blocked { background-color: #A9A9A9; cursor: not-allowed; }
+  .seat::after { content: attr(data-info); position: absolute; bottom: 110%; left: 50%; transform: translateX(-50%); background: #333; color: #fff; padding: 2px 5px; border-radius: 3px; font-size: 12px; white-space: nowrap; opacity: 0; transition: opacity 0.15s; pointer-events: none; }
   .seat:hover::after { opacity: 1; }
 </style>
 
@@ -70,6 +27,7 @@
 <h1>Admin - Griglia Prenotazioni</h1>
 
 <div id="controls">
+  <select id="eventSelectAdmin" class="styled-select-admin" onchange="loadSelectedAdminEvent()"></select>
   <button id="resetBtn">Reset Completo Sala</button>
   <button id="exportBtn">Esporta in Excel</button>
 </div>
@@ -77,58 +35,76 @@
 <div id="adminGrid"></div>
 
 <script>
-let currentSeatsAdmin = [];
+/* semplice versione: popoliamo sempre 6 Open Day (1..6) come nella pagina pubblica,
+   evitando fetch multipli / duplicazioni. Tutte le azioni useranno l'id selezionato. */
 
-// Carica lo stato dei posti
-async function loadAdminSeats() {
+let currentSeatsAdmin = [];
+let currentAdminEventId = 1;
+let currentAdminRows = 6;
+let currentAdminCols = 10;
+let adminPollingId = null;
+
+// carica settings globali (fallback rows/cols)
+async function loadSettings() {
   try {
-    const res = await fetch('/api/seats');
-    const seats = await res.json();
-    renderAdminGrid(seats);
-    currentSeatsAdmin = seats;
-  } catch (err) {
-    console.error('Errore caricamento admin:', err);
+    const res = await fetch('/api/settings');
+    if (!res.ok) return;
+    const s = await res.json();
+    currentAdminRows = s.num_rows || currentAdminRows;
+    currentAdminCols = s.num_cols || currentAdminCols;
+  } catch (e) {
+    // usa valori di default
   }
 }
 
-// Render griglia admin
+// carica posti per evento selezionato
+async function loadAdminSeats(eventId = currentAdminEventId) {
+  try {
+    currentAdminEventId = eventId;
+    const res = await fetch(`/api/seats/${eventId}`);
+    const seats = res.ok ? await res.json() : [];
+    if (seats && seats.length) {
+      currentAdminRows = Math.max(...seats.map(s => Number(s.row_num || 1)));
+      currentAdminCols = Math.max(...seats.map(s => Number(s.col_num || 1)));
+    } else {
+      // se non ci sono posti nel db, mantieni settings caricati
+      await loadSettings();
+    }
+    renderAdminGrid(seats || []);
+    currentSeatsAdmin = seats || [];
+  } catch (err) {
+    console.error('Errore loadAdminSeats:', err);
+  }
+}
+
 function renderAdminGrid(seats) {
   const grid = document.getElementById('adminGrid');
   if (!grid) return;
-
-  const rows = Math.max(...seats.map(s => s.row_num));
-  const cols = Math.max(...seats.map(s => s.col_num));
-
+  const rows = currentAdminRows || 6;
+  const cols = currentAdminCols || 10;
   grid.style.gridTemplateColumns = `repeat(${cols}, 50px)`;
   grid.innerHTML = '';
 
   for (let r = 1; r <= rows; r++) {
     for (let c = 1; c <= cols; c++) {
-      const seat = seats.find(s => s.row_num === r && s.col_num === c);
+      const seat = (seats || []).find(s => Number(s.row_num) === r && Number(s.col_num) === c);
       const div = document.createElement('div');
       div.className = 'seat';
-      div.style.width = '50px';
-      div.style.height = '50px';
-      div.style.display = 'flex';
-      div.style.alignItems = 'center';
-      div.style.justifyContent = 'center';
-      div.style.fontWeight = 'bold';
-      div.style.borderRadius = '5px';
-      div.style.cursor = 'pointer';
-      div.style.position = 'relative';
+      div.textContent = seat ? (seat.seat_number ?? `${r}-${c}`) : '-';
 
       if (seat) {
         div.id = `seat-${seat.id}`;
-        div.textContent = seat.seat_number;
-        div.classList.add(seat.status);
-
-        // Tooltip con info prenotazione
+        div.classList.add(seat.status ?? 'blocked');
         if (seat.status === 'reserved') {
-          div.dataset.info = `Prenotato: ${seat.reserved_name} ${seat.reserved_surname} (${seat.reserved_phone})`;
+          const name = seat.reserved_name || seat.name || '';
+          const surname = seat.reserved_surname || seat.surname || '';
+          const phone = seat.reserved_phone || seat.phone || '';
+          div.dataset.info = `Prenotato: ${name} ${surname} (${phone})`;
           div.onclick = () => {
-            if (confirm('Sei sicuro di eliminare questa prenotazione?')) {
+            if (confirm('Eliminare questa prenotazione?')) {
               fetch(`/api/cancel/${seat.id}`, { method: 'DELETE' })
-                .then(() => loadAdminSeats());
+                .then(() => loadAdminSeats(currentAdminEventId))
+                .catch(err => console.error(err));
             }
           };
         } else {
@@ -136,7 +112,6 @@ function renderAdminGrid(seats) {
           div.onclick = null;
         }
       } else {
-        div.textContent = '-';
         div.classList.add('blocked');
         div.dataset.info = 'Non disponibile';
         div.onclick = null;
@@ -147,15 +122,19 @@ function renderAdminGrid(seats) {
   }
 }
 
-// Polling automatico
 function startAdminPolling(interval = 1000) {
-  setInterval(async () => {
+  if (adminPollingId) clearInterval(adminPollingId);
+  adminPollingId = setInterval(async () => {
     try {
-      const res = await fetch('/api/seats');
-      const seats = await res.json();
+      const res = await fetch(`/api/seats/${currentAdminEventId}`);
+      const seats = res.ok ? await res.json() : [];
       if (JSON.stringify(seats) !== JSON.stringify(currentSeatsAdmin)) {
-        renderAdminGrid(seats);
-        currentSeatsAdmin = seats;
+        if (seats && seats.length) {
+          currentAdminRows = Math.max(...seats.map(s => Number(s.row_num || 1)));
+          currentAdminCols = Math.max(...seats.map(s => Number(s.col_num || 1)));
+        }
+        renderAdminGrid(seats || []);
+        currentSeatsAdmin = seats || [];
       }
     } catch (err) {
       console.error('Errore polling admin:', err);
@@ -163,46 +142,69 @@ function startAdminPolling(interval = 1000) {
   }, interval);
 }
 
-// Bottoni reset ed export
+// popola la select con 6 openday fissi (come pagina pubblica)
+function loadEventsAdmin() {
+  const select = document.getElementById('eventSelectAdmin');
+  select.innerHTML = '';
+  for (let i = 1; i <= 6; i++) {
+    const option = document.createElement('option');
+    option.value = String(i);
+    option.textContent = `Open Day ${i}`;
+    select.appendChild(option);
+  }
+  select.selectedIndex = 0;
+  currentAdminEventId = select.value;
+}
+
+// handler cambio select
+async function loadSelectedAdminEvent() {
+  const sel = document.getElementById('eventSelectAdmin');
+  currentAdminEventId = sel.value;
+  await loadAdminSeats(currentAdminEventId);
+}
+
+// reset ed export
 document.getElementById('resetBtn').onclick = async () => {
-  if (!confirm('Sei sicuro di voler resettare tutti i posti?')) return;
+  if (!confirm('Sei sicuro di resettare tutti i posti per questo Open Day?')) return;
   try {
-    const seats = await (await fetch('/api/seats')).json();
+    const seats = await (await fetch(`/api/seats/${currentAdminEventId}`)).json();
     for (const s of seats) {
       await fetch(`/api/cancel/${s.id}`, { method: 'DELETE' });
     }
-    alert('Posti resettati!');
-    loadAdminSeats();
+    alert('Posti resettati');
+    loadAdminSeats(currentAdminEventId);
   } catch (err) {
     console.error('Errore reset:', err);
-    alert('Errore nel reset dei posti');
+    alert('Errore nel reset');
   }
 };
 
 document.getElementById('exportBtn').onclick = async () => {
   try {
-    const seats = await (await fetch('/api/seats')).json();
-    const data = seats.map(s => ({
-      Numero: s.seat_number,
+    const seats = await (await fetch(`/api/seats/${currentAdminEventId}`)).json();
+    const data = (seats || []).map(s => ({
+      Numero: s.seat_number ?? '',
       Stato: s.status === 'reserved' ? 'Prenotato' : 'Libero',
-      Nome: s.reserved_name || '',
-      Cognome: s.reserved_surname || '',
-      Telefono: s.reserved_phone || ''
+      Nome: s.reserved_name || s.name || '',
+      Cognome: s.reserved_surname || s.surname || '',
+      Telefono: s.reserved_phone || s.phone || ''
     }));
     const worksheet = XLSX.utils.json_to_sheet(data);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Prenotazioni");
-    XLSX.writeFile(workbook, "prenotazioni.xlsx");
+    XLSX.writeFile(workbook, `prenotazioni_openday_${currentAdminEventId}.xlsx`);
   } catch (err) {
     console.error('Errore export:', err);
     alert('Errore esportazione');
   }
 };
 
-// Avvio admin
-window.onload = () => {
-  loadAdminSeats();
-  startAdminPolling();
+// inizializzazione semplice e stabile
+window.onload = async () => {
+  loadEventsAdmin();                 // popola la select con 6
+  await loadSettings();              // carica eventuali settings
+  await loadAdminSeats(currentAdminEventId); // carica la prima griglia
+  startAdminPolling();               // avvia polling
 };
 </script>
 

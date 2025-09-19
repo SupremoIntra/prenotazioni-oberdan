@@ -16,3 +16,29 @@ body { font-family: Arial, sans-serif; margin: 0; padding: 0; text-align: center
 .available { background: #1E90FF; }
 .reserved { background: #FF6347; cursor: not-allowed; }
 .blocked { background: #A9A9A9; cursor: not-allowed; }
+
+
+/* Tendina stile pagina */
+.styled-select {
+  font-family: Arial, sans-serif;
+  font-size: 16px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 2px solid #1E90FF;
+  background-color: #f0f8ff;
+  color: #1E90FF;
+  cursor: pointer;
+  margin: 20px auto 20px auto; /* sposta più in basso e centra */
+  display: block;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.styled-select:hover {
+  background-color: #e0f0ff;
+}
+
+.styled-select:focus {
+  border-color: #0d74d1;
+  box-shadow: 0 0 5px rgba(30,144,255,0.5);
+}

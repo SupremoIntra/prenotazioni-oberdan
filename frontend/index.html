@@ -5,22 +5,85 @@
 <title>Prenotazioni - ISIS Oberdan</title>
 <link rel="stylesheet" href="style.css">
 <style>
-  header { background-color: #1E90FF; color: white; padding: 20px 0; }
+  body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f0f8ff; }
+  header { background-color: #1E90FF; color: white; padding: 20px 0; text-align: center; }
   header img { max-height: 120px; margin-bottom: 10px; }
   h1 { margin: 10px 0; }
+
+  main { text-align: center; padding: 20px; }
+
+  /* Tendina Open Day */
+  .styled-select {
+    margin: 30px auto 30px auto; /* spostata più in basso */
+    display: block;
+    padding: 8px 12px;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+    background: #fff;
+    font-size: 16px;
+    cursor: pointer;
+    min-width: 220px;
+  }
+
+  /* Griglia posti */
+  #grid {
+    display: grid;
+    justify-content: center;
+    gap: 5px;
+  }
+
+  .seat {
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    border-radius: 5px;
+    cursor: pointer;
+    position: relative;
+    color: #fff;
+  }
+
+  .seat.available { background-color: #1E90FF; }
+  .seat.reserved { background-color: #FF6347; }
+  .seat.blocked { background-color: #A9A9A9; cursor: not-allowed; }
+
+  .seat:hover::after {
+    content: attr(data-info);
+    position: absolute;
+    bottom: 110%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #333;
+    color: #fff;
+    padding: 2px 5px;
+    border-radius: 3px;
+    white-space: nowrap;
+    font-size: 12px;
+    z-index: 10;
+  }
 
   /* Form laterale */
   #reservationForm {
     position: fixed;
-    top: 50%; right: -300px; transform: translateY(-50%);
-    width: 280px; background: #fff; border-radius: 10px;
-    box-shadow: 0 0 15px rgba(0,0,0,0.3); padding: 20px;
-    transition: right 0.3s; z-index: 100;
+    top: 50%; right: -300px;
+    transform: translateY(-50%);
+    width: 280px;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 0 15px rgba(0,0,0,0.3);
+    padding: 20px;
+    transition: right 0.3s;
+    z-index: 100;
   }
+
   #reservationForm.active { right: 20px; }
   #reservationForm h2 { margin-top: 0; color: #1E90FF; }
   #reservationForm input { width: 100%; padding: 8px; margin: 5px 0; border-radius: 5px; border: 1px solid #ccc; }
-  #reservationForm button { width: 100%; padding: 8px; border-radius: 5px; background: #1E90FF; color: #fff; border: none; cursor: pointer; margin-top: 10px; }
+  #reservationForm button {
+    width: 100%; padding: 8px; border-radius: 5px; background: #1E90FF; color: #fff; border: none; cursor: pointer; margin-top: 10px;
+  }
   #reservationForm button:hover { background: #0d74d1; }
   #closeForm { position: absolute; top: 5px; right: 10px; cursor: pointer; font-weight: bold; color: #333; }
 </style>
@@ -32,6 +95,7 @@
 </header>
 
 <main>
+  <select id="eventSelect" onchange="loadSelectedEvent()" class="styled-select"></select>
   <div id="grid"></div>
 </main>
 

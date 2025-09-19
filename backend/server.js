@@ -81,6 +81,34 @@ app.delete('/api/cancel/:id', async (req, res) => {
   }
 });
 
+// Lista eventi
+app.get('/api/events', async (req, res) => {
+  const [rows] = await pool.query('SELECT * FROM events');
+  res.json(rows);
+});
+
+// Posti di un evento
+app.get('/api/seats/:eventId', async (req, res) => {
+  const eventId = req.params.eventId;
+  const [rows] = await pool.query('SELECT * FROM seats WHERE event_id = ? ORDER BY row_num, col_num', [eventId]);
+  res.json(rows);
+});
+
+// Prenotazione per un evento
+app.post('/api/reserve/:eventId', async (req, res) => {
+  const { seat_id, name, surname, phone } = req.body;
+  const eventId = req.params.eventId;
+
+  const [result] = await pool.query(
+    `UPDATE seats SET status='reserved', reserved_name=?, reserved_surname=?, reserved_phone=?, reserved_at=NOW() 
+     WHERE id=? AND status='available' AND event_id=?`,
+    [name, surname, phone, seat_id, eventId]
+  );
+  if (result.affectedRows === 0) return res.status(409).json({ error: 'Posto non disponibile' });
+  res.json({ success: true });
+});
+
+
 // ---- START ----
 const PORT = 3000;
 app.listen(PORT, () => console.log(`Server avviato su http://localhost:${PORT}`));
