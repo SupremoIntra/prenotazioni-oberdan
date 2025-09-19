@@ -45,35 +45,37 @@
     position: relative;
     color: #fff;
     transition: transform 0.12s ease, box-shadow 0.12s ease;
+    z-index: 0;
   }
 
   .seat:hover { transform: translateY(-4px); box-shadow: 0 6px 12px rgba(0,0,0,0.12); }
 
-  .seat.available { background-color: #1E90FF; } /* azzurro */
-  .seat.reserved  { background-color: #FF6347; } /* rosso */
-  .seat.blocked   { background-color: #A9A9A9; cursor: not-allowed; } /* grigio */
+  .seat.available { background-color: #1E90FF; }
+  .seat.reserved  { background-color: #FF6347; }
+  .seat.blocked   { background-color: #A9A9A9; cursor: not-allowed; }
 
-  /* numero posto: sempre visibile */
   .seat-number {
-    z-index: 2;
+    position: relative;
+    z-index: 1;
     font-size: 14px;
     pointer-events: none;
   }
 
-  /* tooltip nero a scomparsa (solo on hover) */
   .seat::after {
     content: attr(data-info);
     position: absolute;
     bottom: 110%;
     left: 50%;
     transform: translateX(-50%);
-    background: #333;
+    background: #000;
     color: #fff;
     padding: 6px 8px;
     border-radius: 6px;
     white-space: nowrap;
     font-size: 12px;
-    z-index: 10;
+    z-index: 9999;
+    border: 1px solid #fff;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.4);
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.12s ease, transform 0.12s ease;
@@ -98,6 +100,44 @@
   #reservationForm input { width: 100%; padding: 8px; margin: 6px 0; border-radius: 6px; border: 1px solid #ccc; }
   #reservationForm button { width: 100%; padding: 8px; border-radius: 6px; background: #1E90FF; color: #fff; border: none; cursor: pointer; }
   #closeForm { position: absolute; top: 8px; right: 12px; cursor: pointer; font-weight: bold; color: #333; }
+
+  /* Checkbox privacy */
+  .privacy-check {
+    margin: 10px 0;
+    font-size: 13px;
+    text-align: left;
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+  }
+  .privacy-check input { margin-top: 3px; }
+  .privacy-check label { line-height: 1.4; }
+
+  /* Messaggi di errore nel form */
+  #formMessage {
+    font-size: 13px;
+    margin-top: 6px;
+    min-height: 20px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    border-radius: 6px;
+    padding: 6px;
+  }
+  #formMessage.visible { opacity: 1; }
+  #formMessage.error { color: #a00; background: #fdd; border: 1px solid #a00; }
+
+  /* Messaggi globali (fuori dal form) */
+  #globalMessage {
+    margin-top: 15px;
+    text-align: center;
+    font-size: 14px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    padding: 10px;
+    border-radius: 6px;
+  }
+  #globalMessage.visible { opacity: 1; }
+  #globalMessage.success { color: #060; background: #dfd; border: 1px solid #060; }
 </style>
 </head>
 <body>
@@ -109,6 +149,7 @@
 <main>
   <select id="eventSelect" onchange="loadSelectedEvent()" class="styled-select"></select>
   <div id="grid"></div>
+  <div id="globalMessage"></div>
 </main>
 
 <!-- Form laterale -->
@@ -118,6 +159,16 @@
   <input type="text" id="name" placeholder="Nome">
   <input type="text" id="surname" placeholder="Cognome">
   <input type="text" id="phone" placeholder="Telefono">
+
+  <div class="privacy-check">
+    <input type="checkbox" id="privacyConsent" required>
+    <label for="privacyConsent">
+      Accetto il trattamento dei miei dati da parte dell'ISIS Oberdan
+    </label>
+  </div>
+
+  <div id="formMessage"></div>
+
   <button onclick="submitReservation()">Prenota</button>
 </div>
 

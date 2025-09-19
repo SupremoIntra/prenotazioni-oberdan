@@ -5,7 +5,37 @@ let currentRows = 6;
 let currentCols = 10;
 let pollingId = null;
 
-// Carica griglia per un evento specifico
+// Messaggi nel form (errori)
+function showFormMessage(text, duration = 3000) {
+  const msgEl = document.getElementById('formMessage');
+  if (!msgEl) return;
+
+  msgEl.textContent = text;
+  msgEl.className = ''; // reset classi
+  msgEl.classList.add('visible', 'error');
+
+  setTimeout(() => {
+    msgEl.classList.remove('visible', 'error');
+    msgEl.textContent = '';
+  }, duration);
+}
+
+// Messaggi globali (successi sotto la griglia)
+function showGlobalMessage(text, duration = 3000) {
+  const msgEl = document.getElementById('globalMessage');
+  if (!msgEl) return;
+
+  msgEl.textContent = text;
+  msgEl.className = ''; // reset classi
+  msgEl.classList.add('visible', 'success');
+
+  setTimeout(() => {
+    msgEl.classList.remove('visible', 'success');
+    msgEl.textContent = '';
+  }, duration);
+}
+
+// Carica griglia
 async function loadSettingsAndSeats(eventId = currentEventId) {
   try {
     const settingsRes = await fetch('/api/settings');
@@ -29,7 +59,7 @@ async function loadSettingsAndSeats(eventId = currentEventId) {
   }
 }
 
-// Renderizza la griglia (senza pill sotto, solo tooltip nero a scomparsa)
+// Renderizza griglia
 function renderGrid(rows, cols, seats) {
   const grid = document.getElementById('grid');
   if (!grid) return;
@@ -49,19 +79,17 @@ function renderGrid(rows, cols, seats) {
       div.style.cursor = (seat && seat.status === 'available') ? 'pointer' : 'not-allowed';
       div.style.position = 'relative';
 
-      // numero del posto (visibile, sempre sopra)
       const numSpan = document.createElement('span');
       numSpan.className = 'seat-number';
       numSpan.textContent = seat ? (seat.seat_number ?? `${r}-${c}`) : '-';
       div.appendChild(numSpan);
 
-      // Mantieni solo tooltip (data-info) che appare in alto al hover
       if (seat) {
         const status = seat.status ?? 'blocked';
         div.classList.add(status);
 
         if (status === 'reserved') {
-          div.dataset.info = `Prenotato`; // tooltip breve e pulito, senza nome
+          div.dataset.info = `Prenotato`;
           div.onclick = null;
         } else if (status === 'available') {
           div.dataset.info = 'Libero';
@@ -81,10 +109,10 @@ function renderGrid(rows, cols, seats) {
   }
 }
 
-// Apri form laterale per prenotare (solo posti disponibili)
+// Apri form
 function openForm(seat) {
   if (!seat || seat.status !== 'available') {
-    alert('Questo posto non è disponibile!');
+    showFormMessage('Questo posto non è disponibile!', 3000);
     return;
   }
   selectedSeatId = seat.id;
@@ -94,6 +122,7 @@ function openForm(seat) {
   document.getElementById('name').value = '';
   document.getElementById('surname').value = '';
   document.getElementById('phone').value = '';
+  document.getElementById('privacyConsent').checked = false;
 }
 
 // Chiudi form
@@ -104,14 +133,27 @@ function closeForm() {
   form.classList.remove('active');
 }
 
-// Invia prenotazione al server
+// Invia prenotazione
 async function submitReservation() {
-  if (!selectedSeatId) { alert('Seleziona un posto!'); return; }
+  if (!selectedSeatId) { 
+    showFormMessage('Seleziona un posto!');
+    return; 
+  }
 
   const name = document.getElementById('name').value.trim();
   const surname = document.getElementById('surname').value.trim();
   const phone = document.getElementById('phone').value.trim();
-  if (!name || !surname || !phone) { alert('Compila tutti i campi!'); return; }
+  const privacyConsent = document.getElementById('privacyConsent').checked;
+
+  if (!name || !surname || !phone) {
+    showFormMessage('Compila tutti i campi!');
+    return;
+  }
+
+  if (!privacyConsent) {
+    showFormMessage('Devi accettare il trattamento dei dati per procedere.');
+    return;
+  }
 
   try {
     const res = await fetch('/api/reserve', {
@@ -122,21 +164,21 @@ async function submitReservation() {
     const data = await res.json();
 
     if (data.success) {
-      alert('Prenotazione effettuata!');
+      showGlobalMessage('Prenotazione effettuata con successo!', 3000);
     } else {
-      alert(data.error || 'Errore nella prenotazione');
+      showFormMessage(data.error || 'Errore nella prenotazione');
     }
     await loadSettingsAndSeats(currentEventId);
     closeForm();
   } catch (err) {
     console.error('Errore prenotazione:', err);
-    alert('Errore nella prenotazione');
+    showFormMessage('Errore nella prenotazione');
     await loadSettingsAndSeats(currentEventId);
     closeForm();
   }
 }
 
-// Polling per aggiornamenti in tempo reale (usa dimensioni correnti)
+// Polling
 function startPolling(interval = 1000) {
   if (pollingId) clearInterval(pollingId);
   pollingId = setInterval(async () => {
@@ -153,7 +195,7 @@ function startPolling(interval = 1000) {
   }, interval);
 }
 
-// Carica eventi e popola tendina (6 Open Day come richiesto)
+// Carica eventi
 async function loadEvents() {
   try {
     const select = document.getElementById('eventSelect');
@@ -173,7 +215,7 @@ async function loadEvents() {
   }
 }
 
-// Cambio Open Day selezionato
+// Cambio evento
 async function loadSelectedEvent() {
   const sel = document.getElementById('eventSelect');
   if (!sel) return;
@@ -181,7 +223,7 @@ async function loadSelectedEvent() {
   await loadSettingsAndSeats(currentEventId);
 }
 
-// Inizializzazione pagina
+// Inizializzazione
 window.onload = () => {
   (async () => {
     await loadEvents();
