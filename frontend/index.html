@@ -152,8 +152,28 @@
 <main>
   <select id="eventSelect" onchange="loadSelectedEvent()" class="styled-select"></select>
   <div id="grid"></div>
-  <div id="globalMessage"></div>
+
+  <!-- Bottone e form per annullare prenotazione -->
+  <div style="margin-top:16px;">
+    <button id="openCancelBtn" onclick="openCancelForm()" style="padding:8px 12px;border-radius:6px;border:none;background:#FF6347;color:#fff;cursor:pointer;">
+      Annulla Prenotazione
+    </button>
+  </div>
 </main>
+
+<!-- Form annulla (piccolo modal laterale) -->
+<div id="cancelForm" style="position:fixed;top:50%;right:-360px;transform:translateY(-50%);width:320px;background:#fff;border-radius:10px;box-shadow:0 8px 20px rgba(0,0,0,0.18);padding:16px;transition:right .28s;z-index:20000;">
+  <span style="position:absolute;top:8px;right:12px;cursor:pointer;font-weight:bold;" onclick="closeCancelForm()">×</span>
+  <h3 style="margin-top:0;color:#1E90FF;">Annulla Prenotazione</h3>
+  <input id="cancel_name" type="text" placeholder="Nome" style="width:100%;padding:8px;margin:6px 0;border-radius:6px;border:1px solid #ccc;">
+  <input id="cancel_surname" type="text" placeholder="Cognome" style="width:100%;padding:8px;margin:6px 0;border-radius:6px;border:1px solid #ccc;">
+  <input id="cancel_phone" type="text" placeholder="Telefono" style="width:100%;padding:8px;margin:6px 0;border-radius:6px;border:1px solid #ccc;">
+  <div style="display:flex;gap:8px;margin-top:8px;">
+    <button onclick="submitCancelByDetails()" style="flex:1;padding:10px;border-radius:6px;border:none;background:#FF6347;color:#fff;font-weight:700;cursor:pointer;">Cancella</button>
+    <button onclick="closeCancelForm()" style="flex:1;padding:10px;border-radius:6px;border:1px solid #ccc;background:#fff;cursor:pointer;">Chiudi</button>
+  </div>
+  <div id="cancelMessage" style="margin-top:8px;font-size:13px;min-height:20px;"></div>
+</div>
 
 <!-- Form laterale -->
 <div id="reservationForm">
@@ -174,6 +194,8 @@
 
   <button onclick="submitReservation()">Prenota</button>
 </div>
+
+
 
 <script src="script.js"></script>
 </body>

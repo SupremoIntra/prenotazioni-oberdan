@@ -108,6 +108,46 @@ app.post('/api/reserve/:eventId', async (req, res) => {
   res.json({ success: true });
 });
 
+// ---- CANCEL VERIFY (nome + cognome + telefono) ----
+app.post('/api/cancel-verify', async (req, res) => {
+  const { name, surname, phone, event_id } = req.body;
+  if (!name || !surname || !phone) return res.status(400).json({ success: false, error: 'Campi mancanti' });
+
+  try {
+    // normalizza input semplicemente (trim)
+    const n = name.trim();
+    const s = surname.trim();
+    const p = phone.trim();
+
+    // trova la prenotazione corrispondente (eventuale) - cerca sul massimo di un record
+    const [rows] = await pool.query(
+      `SELECT id FROM seats 
+       WHERE reserved_name = ? AND reserved_surname = ? AND reserved_phone = ?` + (event_id ? ' AND event_id = ?' : '') + ' LIMIT 1',
+      event_id ? [n, s, p, event_id] : [n, s, p]
+    );
+
+    if (!rows || rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Prenotazione non trovata' });
+    }
+
+    const seatId = rows[0].id;
+
+    const [result] = await pool.query(
+      `UPDATE seats SET status='available', reserved_name=NULL, reserved_surname=NULL, reserved_phone=NULL, reserved_at=NULL 
+       WHERE id = ?`,
+      [seatId]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(500).json({ success: false, error: 'Impossibile annullare la prenotazione' });
+    }
+
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('cancel-verify error', err);
+    return res.status(500).json({ success: false, error: 'Errore interno' });
+  }
+});
 
 // ---- START ----
 const PORT = 3000;

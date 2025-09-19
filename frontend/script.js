@@ -223,6 +223,60 @@ async function loadSelectedEvent() {
   await loadSettingsAndSeats(currentEventId);
 }
 
+
+
+// apri/chiudi cancel form (non toccare altro)
+function openCancelForm() {
+  const f = document.getElementById('cancelForm');
+  if (!f) return;
+  f.style.right = '20px';
+  f.setAttribute('aria-hidden','false');
+  document.getElementById('cancelMessage').textContent = '';
+}
+function closeCancelForm() {
+  const f = document.getElementById('cancelForm');
+  if (!f) return;
+  f.style.right = '-360px';
+  f.setAttribute('aria-hidden','true');
+}
+
+// invia richiesta di cancellazione basata su nome/cognome/telefono
+async function submitCancelByDetails() {
+  const name = (document.getElementById('cancel_name').value || '').trim();
+  const surname = (document.getElementById('cancel_surname').value || '').trim();
+  const phone = (document.getElementById('cancel_phone').value || '').trim();
+  const msgEl = document.getElementById('cancelMessage');
+
+  if (!name || !surname || !phone) {
+    msgEl.style.color = '#b00020';
+    msgEl.textContent = 'Compila tutti i campi.';
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/cancel-verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, surname, phone, event_id: currentEventId })
+    });
+    const data = await res.json();
+    if (res.ok && data.success) {
+      msgEl.style.color = '#0a7a07';
+      msgEl.textContent = 'Prenotazione annullata.';
+      // ricarica griglia
+      await loadSettingsAndSeats(currentEventId);
+      setTimeout(closeCancelForm, 900);
+    } else {
+      msgEl.style.color = '#b00020';
+      msgEl.textContent = data.error || 'Prenotazione non trovata.';
+    }
+  } catch (err) {
+    console.error(err);
+    msgEl.style.color = '#b00020';
+    msgEl.textContent = 'Errore server.';
+  }
+}
+
 // Inizializzazione
 window.onload = () => {
   (async () => {
