@@ -3,35 +3,33 @@ let currentSeats = [];
 let currentEventId = 1;
 let currentRows = 6;
 let currentCols = 10;
+let pollingId = null;
 
 // Carica griglia per un evento specifico
 async function loadSettingsAndSeats(eventId = currentEventId) {
   try {
     const settingsRes = await fetch('/api/settings');
-    const settings = await settingsRes.json();
-
+    const settings = settingsRes.ok ? await settingsRes.json() : {};
     const seatsRes = await fetch(`/api/seats/${eventId}`);
-    const seats = await seatsRes.json();
+    const seats = seatsRes.ok ? await seatsRes.json() : [];
 
     const logoEl = document.getElementById('logo');
     if (logoEl) logoEl.src = settings.logo_url || 'logo.png';
 
-    const rows = settings.num_rows || 6;
-    const cols = settings.num_cols || 10;
+    const rows = Number(settings.num_rows) || 6;
+    const cols = Number(settings.num_cols) || 10;
 
-    // aggiorno dimensioni correnti per il polling
     currentRows = rows;
     currentCols = cols;
 
-    renderGrid(rows, cols, seats);
-    currentSeats = seats;
-
+    renderGrid(rows, cols, seats || []);
+    currentSeats = seats || [];
   } catch (err) {
     console.error('Errore nel caricamento:', err);
   }
 }
 
-// Renderizza la griglia
+// Renderizza la griglia (senza pill sotto, solo tooltip nero a scomparsa)
 function renderGrid(rows, cols, seats) {
   const grid = document.getElementById('grid');
   if (!grid) return;
@@ -41,23 +39,41 @@ function renderGrid(rows, cols, seats) {
   grid.style.gap = '5px';
   grid.innerHTML = '';
 
+  const seatList = seats || [];
+
   for (let r = 1; r <= rows; r++) {
     for (let c = 1; c <= cols; c++) {
-      const seat = seats.find(s => s.row_num === r && s.col_num === c);
+      const seat = seatList.find(s => Number(s.row_num) === r && Number(s.col_num) === c);
       const div = document.createElement('div');
       div.className = 'seat';
-      div.style.cursor = seat && seat.status === 'available' ? 'pointer' : 'not-allowed';
+      div.style.cursor = (seat && seat.status === 'available') ? 'pointer' : 'not-allowed';
+      div.style.position = 'relative';
 
+      // numero del posto (visibile, sempre sopra)
+      const numSpan = document.createElement('span');
+      numSpan.className = 'seat-number';
+      numSpan.textContent = seat ? (seat.seat_number ?? `${r}-${c}`) : '-';
+      div.appendChild(numSpan);
+
+      // Mantieni solo tooltip (data-info) che appare in alto al hover
       if (seat) {
-        div.id = `seat-${seat.id}`;
-        div.textContent = seat.seat_number;
-        div.classList.add(seat.status); // 'available', 'reserved', ecc.
-        div.title = seat.status === 'reserved' ? `${seat.name} ${seat.surname}` : 'Libero';
-        if (seat.status === 'available') div.onclick = () => openForm(seat);
+        const status = seat.status ?? 'blocked';
+        div.classList.add(status);
+
+        if (status === 'reserved') {
+          div.dataset.info = `Prenotato`; // tooltip breve e pulito, senza nome
+          div.onclick = null;
+        } else if (status === 'available') {
+          div.dataset.info = 'Libero';
+          div.onclick = () => openForm(seat);
+        } else {
+          div.dataset.info = status;
+          div.onclick = null;
+        }
       } else {
-        div.textContent = '-';
         div.classList.add('blocked');
-        div.title = 'Non disponibile';
+        div.dataset.info = 'Non disponibile';
+        div.onclick = null;
       }
 
       grid.appendChild(div);
@@ -65,25 +81,30 @@ function renderGrid(rows, cols, seats) {
   }
 }
 
-// Form
+// Apri form laterale per prenotare (solo posti disponibili)
 function openForm(seat) {
-  if (seat.status !== 'available') {
+  if (!seat || seat.status !== 'available') {
     alert('Questo posto non è disponibile!');
     return;
   }
   selectedSeatId = seat.id;
-  document.getElementById('reservationForm').classList.add('active');
+  const form = document.getElementById('reservationForm');
+  if (!form) return;
+  form.classList.add('active');
   document.getElementById('name').value = '';
   document.getElementById('surname').value = '';
   document.getElementById('phone').value = '';
 }
 
+// Chiudi form
 function closeForm() {
   selectedSeatId = null;
-  document.getElementById('reservationForm').classList.remove('active');
+  const form = document.getElementById('reservationForm');
+  if (!form) return;
+  form.classList.remove('active');
 }
 
-// Prenotazione
+// Invia prenotazione al server
 async function submitReservation() {
   if (!selectedSeatId) { alert('Seleziona un posto!'); return; }
 
@@ -102,29 +123,29 @@ async function submitReservation() {
 
     if (data.success) {
       alert('Prenotazione effettuata!');
-      await loadSettingsAndSeats(currentEventId); // ricarica la griglia dal server
-      closeForm();
     } else {
       alert(data.error || 'Errore nella prenotazione');
-      await loadSettingsAndSeats(currentEventId);
-      closeForm();
     }
+    await loadSettingsAndSeats(currentEventId);
+    closeForm();
   } catch (err) {
     console.error('Errore prenotazione:', err);
     alert('Errore nella prenotazione');
+    await loadSettingsAndSeats(currentEventId);
+    closeForm();
   }
 }
 
-// Polling per aggiornamenti in tempo reale
+// Polling per aggiornamenti in tempo reale (usa dimensioni correnti)
 function startPolling(interval = 1000) {
-  setInterval(async () => {
+  if (pollingId) clearInterval(pollingId);
+  pollingId = setInterval(async () => {
     try {
       const seatsRes = await fetch(`/api/seats/${currentEventId}`);
-      const seats = await seatsRes.json();
+      const seats = seatsRes.ok ? await seatsRes.json() : [];
       if (JSON.stringify(seats) !== JSON.stringify(currentSeats)) {
-        // usa le dimensioni correnti lette dalle impostazioni
-        renderGrid(currentRows || 6, currentCols || 10, seats);
-        currentSeats = seats;
+        renderGrid(currentRows || 6, currentCols || 10, seats || []);
+        currentSeats = seats || [];
       }
     } catch (err) {
       console.error('Errore nel polling:', err);
@@ -132,18 +153,19 @@ function startPolling(interval = 1000) {
   }, interval);
 }
 
-// Carica eventi e popola tendina
+// Carica eventi e popola tendina (6 Open Day come richiesto)
 async function loadEvents() {
   try {
     const select = document.getElementById('eventSelect');
+    if (!select) return;
     select.innerHTML = '';
-    // Genero solo 6 openday puliti (Open Day 1..6)
     for (let i = 1; i <= 6; i++) {
       const option = document.createElement('option');
       option.value = String(i);
       option.textContent = `Open Day ${i}`;
       select.appendChild(option);
     }
+    select.selectedIndex = 0;
     currentEventId = select.value;
     await loadSettingsAndSeats(currentEventId);
   } catch (err) {
@@ -151,13 +173,15 @@ async function loadEvents() {
   }
 }
 
-// Evento cambio open day
+// Cambio Open Day selezionato
 async function loadSelectedEvent() {
-  currentEventId = document.getElementById('eventSelect').value;
+  const sel = document.getElementById('eventSelect');
+  if (!sel) return;
+  currentEventId = sel.value;
   await loadSettingsAndSeats(currentEventId);
 }
 
-// Avvio pagina
+// Inizializzazione pagina
 window.onload = () => {
   (async () => {
     await loadEvents();
